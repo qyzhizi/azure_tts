@@ -51,7 +51,7 @@ export default {
         const clientIP = request.headers.get("CF-Connecting-IP")
 
         if (url.pathname == "/") {
-            const html = await fetch("https://raw.githubusercontent.com/x-dr/tts/main/public/index.html")
+            const html = await fetch("https://raw.githubusercontent.com/qyzhizi/azure_tts/main/public/index.html")
 
             const page = await html.text()
             return new Response(page, {
