@@ -1,34 +1,20 @@
-// addEventListener('fetch', event => {
-//     event.respondWith(handleRequest(event.request))
-// })
-
-
-function generateUUID() {
-    let uuid = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'.replace(/[x]/g, function (c) {
-        let r = Math.random() * 16 | 0,
-            v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
-    return uuid;
-}
 
 const API_URL = "https://eastus.tts.speech.microsoft.com/cognitiveservices/v1";
+
 const DEFAULT_HEADERS = {
-    "Ocp-Apim-Subscription-Key": "E0zTJnd2aWsD058bkqRe5qpMNeBqNRZCLD47SnsYtaFVqeCE0KXrJQQJ99ALACYeBjFXJ3w3AAAYACOG9BFU",
     "user-agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
     "Content-Type": "application/ssml+xml",
     "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
 };
 
-const speechApi = async (ssml) => {
-    // const data = JSON.stringify({ ssml});
+const speechApi = async (ssml, ttsHeaders) => {
 
     try {
         const response = await fetch(API_URL, {
             method: "POST",
             responseType: "arraybuffer",
-            headers: DEFAULT_HEADERS,
+            headers: ttsHeaders,
             body: ssml
         });
 
@@ -45,6 +31,11 @@ const speechApi = async (ssml) => {
 
 export default {
     async fetch(request, env) {
+        const secretKey = env.SECRET_KEY;
+        const ttsHeaders = {
+            ...DEFAULT_HEADERS,
+            "Ocp-Apim-Subscription-Key": secretKey // 新增属性
+        };
         // 解析请求 URL
         const url = new URL(request.url);
 
@@ -73,14 +64,17 @@ export default {
                     if (!text || !voice) {
                         return new Response("Missing required fields", { status: 400 });
                     }
-
-                    const ssml = `<speak version="1.0" xml:lang="en-US">
-                        <voice xml:lang="en-US" xml:gender="Female" name="en-US-AvaMultilingualNeural"">
-                            ${text}
-                        </voice>
+                    const ssml = `<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" version="1.0" xml:lang="en-US">
+                    <voice name="${voice}">
+                    <mstts:express-as style="${voiceStyle}">
+                        <prosody rate="${rate}%" pitch="${pitch}%">
+                        ${text}
+                       </prosody>
+                        </mstts:express-as>
+                    </voice>
                     </speak>`;
-
-                    const audio = await speechApi(ssml);
+                
+                    const audio = await speechApi(ssml, ttsHeaders);
 
                     return new Response(audio, {
                         headers: {
