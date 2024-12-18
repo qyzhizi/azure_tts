@@ -1,5 +1,4 @@
 
-const API_URL = "https://eastus.tts.speech.microsoft.com/cognitiveservices/v1";
 
 const DEFAULT_HEADERS = {
     "user-agent":
@@ -8,7 +7,8 @@ const DEFAULT_HEADERS = {
     "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3",
 };
 
-const speechApi = async (ssml, ttsHeaders) => {
+const speechApi = async (ssml, region, ttsHeaders) => {
+    const API_URL = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
 
     try {
         const response = await fetch(API_URL, {
@@ -32,6 +32,7 @@ const speechApi = async (ssml, ttsHeaders) => {
 export default {
     async fetch(request, env) {
         const secretKey = env.SECRET_KEY;
+        const region = env.REGION
         const ttsHeaders = {
             ...DEFAULT_HEADERS,
             "Ocp-Apim-Subscription-Key": secretKey // 新增属性
@@ -42,20 +43,38 @@ export default {
         const clientIP = request.headers.get("CF-Connecting-IP")
 
         if (url.pathname == "/") {
-            const html = await fetch("https://raw.githubusercontent.com/qyzhizi/azure_tts/main/public/index.html")
-
-            const page = await html.text()
-            return new Response(page, {
-                headers: {
-                    "content-type": "text/html;charset=UTF-8",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Credentials": "true",
-                    "Access-Control-Allow-Headers": "*",
-                    "Access-Control-Allow-Methods": "*",
-                    "ip": `Access cloudflare's ip:${clientIP}`
-                },
-            })
-        } else if (url.pathname === "/audio") {
+            try {
+                const html = await fetch("https://raw.githubusercontent.com/qyzhizi/azure_tts/main/public/index.html");
+                
+                // 检查响应是否成功
+                if (!html.ok) {
+                    throw new Error(`HTTP error! Status: ${html.status}`);
+                }
+            
+                const page = await html.text();
+                return new Response(page, {
+                    headers: {
+                        "content-type": "text/html;charset=UTF-8",
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Credentials": "true",
+                        "Access-Control-Allow-Headers": "*",
+                        "Access-Control-Allow-Methods": "*",
+                        "ip": `Access cloudflare's ip:${clientIP}`
+                    },
+                });
+            } catch (error) {
+                console.error("Fetch failed:", error);
+                
+                // Return a generic error response
+                return new Response("Error fetching the  index.html page.", {
+                    status: 500,
+                    headers: {
+                        "content-type": "text/plain;charset=UTF-8",
+                        "Access-Control-Allow-Origin": "*",
+                    },
+                });
+            }
+        }else if (url.pathname === "/audio") {
             try {
                 if (request.method === "POST") {
                     const body = await request.json();
@@ -74,7 +93,7 @@ export default {
                     </voice>
                     </speak>`;
                 
-                    const audio = await speechApi(ssml, ttsHeaders);
+                    const audio = await speechApi(ssml, region,ttsHeaders);
 
                     return new Response(audio, {
                         headers: {
